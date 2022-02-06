@@ -1,0 +1,76 @@
+\documentclass[a4paper, 12pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\title{Exploiting Log4j vulnerability}
+\author{Cristiano Di Bari}
+\author{Matteo Cavaliere}
+
+\usepackage[italian]{babel}
+
+\usepackage[margin=25mm]{geometry}  
+\usepackage{graphicx}              
+\usepackage{pdfpages}             
+\usepackage{afterpage}
+
+\usepackage{xcolor}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.68,0,0.12}
+\definecolor{backcolour}{rgb}{0.96,0.96,0.96}
+
+\usepackage{listings}
+
+\lstloadlanguages{Python}
+\lstdefinestyle{PythonCodeStyle}{
+   	language=Python,
+   	backgroundcolor=\color{backcolour},
+	basicstyle=\ttfamily\footnotesize,
+   	commentstyle=\color{codegray},
+   	keywordstyle=\color{codegreen},
+   	stringstyle=\color{codepurple},
+    numbers=left,
+   	numbersep=-5pt,
+	numberstyle=\tiny\color{gray},
+	breakatwhitespace=false,
+	breaklines=true,
+	keepspaces=true,
+	showspaces=false,
+	showstringspaces=false,
+	showtabs=false,   
+    tabsize=5,
+    frame=lines,
+	captionpos=b,
+}
+\lstset{style=PythonCodeStyle}
+
+\begin{document}
+
+%% FRONTESPIZIO %%
+\begin{titlepage}
+    \vbox{ }
+
+    \begin{center}
+        \includegraphics[width=0.60\textwidth]{img/univr-di-logo.png}\\[2cm]
+        \textsc{\Large Fondamenti di Sicurezza e Privacy}\\[0.6cm]
+
+        \noindent\makebox[\linewidth]{\rule{.7\paperwidth}{.6pt}}\\[0.7cm]
+        { \huge \bfseries Exploiting Log4j vulnerability}\\[0.25cm]
+        \noindent\makebox[\linewidth]{\rule{.7\paperwidth}{.6pt}}\\[0.7cm]
+        \large{Progetto d'Esame}\\[1.2cm]
+        \vfill
+        \large
+        
+        \emph{Studenti:}\\[1mm]
+        Cristiano Di Bari  - VR476576\\[1mm]
+        Matteo Cavaliere - VR477235\\[2cm]
+
+        {\large A.A. 2021-2022}
+    \end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+
+\end{document}
