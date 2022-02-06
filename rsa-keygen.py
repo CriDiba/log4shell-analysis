@@ -23,7 +23,7 @@ def generate_key_pair():
 
     pk = key.public_key().public_bytes(
         crypto_serialization.Encoding.PEM,
-        crypto_serialization.PublicFormat.PKCS1
+        crypto_serialization.PublicFormat.SubjectPublicKeyInfo
     )
 
     print(f'{Fore.GREEN}[+] Generated secret key and public key for RSA')
