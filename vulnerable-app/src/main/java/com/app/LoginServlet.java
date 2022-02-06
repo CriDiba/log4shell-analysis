@@ -8,14 +8,12 @@ import javax.servlet.annotation.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-
 @WebServlet(name = "loginServlet", value = "/login")
 public class LoginServlet extends HttpServlet {
-    private static final Logger logger = LogManager.getLogger('LoginServlet');
+    private static final Logger logger = LogManager.getLogger("LoginServlet");
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-
         String userName = req.getParameter("uname");
         String password = req.getParameter("password");
 
