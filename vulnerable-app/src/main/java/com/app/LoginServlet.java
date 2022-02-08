@@ -2,6 +2,7 @@ package com.app;
 
 import java.io.*;
 import javax.servlet.ServletException;
+import javax.servlet.RequestDispatcher;
 import javax.servlet.http.*;
 import javax.servlet.annotation.*;
 
@@ -17,15 +18,15 @@ public class LoginServlet extends HttpServlet {
         String userName = req.getParameter("uname");
         String password = req.getParameter("password");
 
-        resp.setContentType("text/html");
-        PrintWriter out = resp.getWriter();
-        out.println("<html><body>");
+        logger.info("User " + userName + " tried to log in");
 
         if (userName.equals("admin") && password.equals("password")) {
-            out.println("Welcome Back Admin");
+            RequestDispatcher view = req.getRequestDispatcher("dashboard.jsp");
+            view.forward(req, resp);
         } else {
-            logger.error(userName);
-            out.println("<code> the password you entered was invalid, <u> we will log your information </u> </code>");
+            req.setAttribute("errors", true);
+            RequestDispatcher view = req.getRequestDispatcher("index.jsp");
+            view.forward(req, resp);
         }
     }
 }

