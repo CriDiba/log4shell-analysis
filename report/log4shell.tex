@@ -78,6 +78,7 @@
 Il 9 dicembre 2021 è stata resa nota pubblicamente una vulnerabità che affligge la libreria di logging \emph{\href{https://logging.apache.org/log4j/2.x/}{Apache Log4j}}, utilizzata per gestire le operazioni di logging in moltissime applicazioni Java.
 La vulnerabilità, subito rinominata \emph{Log4Shell}, è stata segnalata come critica data la larga scala su cui impatta, le conseguenze che può provocare e la sua facilità di sfruttamento.
 Lo zero-day, inizialmente annunciato con un tweet insieme ad un PoC pubblicato su github è stato ora pubblicato come \textbf{\href{https://nvd.nist.gov/vuln/detail/CVE-2021-44228}{CVE-2021-44228}}  una vulnerabilità di tipo Remote Code Execution (RCE) classificato 10 su 10 in termini di gravità. Infatti tramite il log di una determinata stringa, un cybercriminale ha la possibilità di eseguire codice arbitrario e, potenzialmente, ottenere il controllo totale del sistema su cui viene eseguita l'applicazione vittima.
+ secondo gli esperti di  ha colpito il 48,3\% delle organizzazioni a livello globale. 
 
 
 \subsection{JNDI Injection}
@@ -298,6 +299,11 @@ Una volta che il sistema target è stato compromesso tramite la cifratura dei fi
 \newpage
 
 \section{Conclusioni}
+Ciò che rende Log4Shell così pericoloso è l'elevata numerosità delle applicazioni che utilizzano internamente la libreria Log4j.
+È presente nelle principali piattaforme da Amazon Web Services a VMware, questa rete di dipendenze tra servizi interessati comporta una difficoltà aggiuntiva nell’applicazione di patch, e può rivelarsi un processo complesso che necessita di molto tempo.
+Infine, la facilità di sfruttamento di questa vulnerabilità e i diversi exploit che mette a disposizione di un attaccante ne aggravano ulteriormente l’impatto. 
+
+In poche parole, la generazione di un log che si vorrebbe utilizzare come strumento di monitoraggio, forse anche per motivi  di sicurezza, potrebbe trasformarsi in un evento catastrofico.
 
 \newpage
 
