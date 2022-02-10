@@ -24,9 +24,9 @@ public class LoginServlet extends HttpServlet {
             RequestDispatcher view = req.getRequestDispatcher("dashboard.jsp");
             view.forward(req, resp);
         } else {
-            req.setAttribute("errors", true);
-            RequestDispatcher view = req.getRequestDispatcher("index.jsp");
-            view.forward(req, resp);
+            req.setAttribute("error", "Login failed: wrong user credentials");
+            RequestDispatcher view = req.getRequestDispatcher("index.jsp");            
+            view.include(req, resp);
         }
     }
 }

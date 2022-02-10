@@ -35,11 +35,12 @@
                             <a href="#" class="font-medium text-indigo-600 hover:text-indigo-500"> Forgot your password? </a>
                         </div>
                     </div>
-                    <% 
-                        if (request.getParameter("errors") !== null) {
-                            out.print("<h2 class='mt-6 text-center text-xl font-bold text-red-600'>Login failed: wrong user credentials</h2>");
+                    <%
+                        String login_msg = (String)request.getAttribute("error");  
+                        if (login_msg != null) {
+                            out.println("<h2 class='mt-6 text-center text-xl font-bold text-red-600'>" + login_msg + "</h2>");
                         }
-                    %> 
+                    %>
                     <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Sign in</button>
                 </form>
             </div>
