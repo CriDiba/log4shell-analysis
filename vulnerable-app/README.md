@@ -4,7 +4,7 @@
 
 ### Install Java 8u181
 Configure your system to use the version `8u181` of Oracle Java SE 8 JDK. 
-Applications running with Java versions prior to `8u191` can be easily exploited, so we have chosen to work with one of the earliest versions of java 8:` java-8u181`.
+Applications running with Java versions prior to `8u191` can be easily exploited, so we have chosen to work with one of the earliest versions of java 8: `java-8u181`.
 Oracle thankfully provides an archive for all previous java versions: https://www.oracle.com/java/technologies/javase/javase8-archive-downloads.html.
 
 1. Go to Oracle Java SE Downloads, scroll down to `8u181`, accept the license agreement and download the installer for your operating system.
